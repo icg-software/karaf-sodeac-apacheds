@@ -451,7 +451,7 @@
         <extensions>true</extensions>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
+            <Bundle-SymbolicName>${project.artifactId};singleton:=true</Bundle-SymbolicName>
             <Bundle-Description>${project.description}</Bundle-Description>
             <Private-Package>
             	com.terracotta*,
