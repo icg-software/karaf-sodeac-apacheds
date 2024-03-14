@@ -4,46 +4,32 @@
 
   <groupId>org.sodeac</groupId>
   <artifactId>org.sodeac.karaf.apacheds</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <packaging>bundle</packaging>
 
   <name>Sodeac eADS</name>
   <description>Sodeac embedded Apache Directory Server</description>
   
+  <parent>
+	  <groupId>com.icg-software</groupId>
+	  <artifactId>bsx-osgi-parent-karaf</artifactId>
+	  <version>4.4.5</version>
+  </parent>
+  
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <apacheds.api.version>2.0.0.AM2</apacheds.api.version>
-    <apacheds.server.version>2.0.0.AM25</apacheds.server.version>
+    <apacheds.api.version>2.1.6</apacheds.api.version>
+    <apacheds.server.version>2.0.0.AM26</apacheds.server.version>
+    <apacheds.server.kerberos.version>2.0.0.AM26</apacheds.server.kerberos.version>
     <apacheds.jdbm.version>2.0.0-M3</apacheds.jdbm.version>
     <apacheds.mavibot.version>1.0.0-M8</apacheds.mavibot.version>
-    <ehcache.version>2.10.6</ehcache.version>
-    <osgi.version>6.0.0</osgi.version>
+    <ehcache.version>3.10.7</ehcache.version>
+    <osgi.version>8.0.0</osgi.version>
     <bundle.version>0.1.0</bundle.version>
-    <jdk.version>1.8</jdk.version>
+    <jdk.version>17</jdk.version>
    </properties>
    
   <dependencies>
-  	 
-  	<dependency>
-      <groupId>org.osgi</groupId>
-      <artifactId>org.osgi.core</artifactId>
-      <version>${osgi.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.osgi</groupId>
-      <artifactId>osgi.cmpn</artifactId>
-      <version>${osgi.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.osgi</groupId>
-      <artifactId>osgi.annotation</artifactId>
-      <version>6.0.1</version>
-      <scope>provided</scope>
-    </dependency>
         
   	<dependency>
       <groupId>org.apache.directory.api</groupId>
@@ -257,12 +243,6 @@
     
     <dependency>
       <groupId>org.apache.directory.server</groupId>
-      <artifactId>apacheds-interceptors-operational</artifactId>
-      <version>${apacheds.server.version}</version>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.apache.directory.server</groupId>
       <artifactId>apacheds-interceptors-referral</artifactId>
       <version>${apacheds.server.version}</version>
     </dependency>
@@ -323,12 +303,6 @@
     
     <dependency>
       <groupId>org.apache.directory.server</groupId>
-      <artifactId>apacheds-kerberos-codec</artifactId>
-      <version>${apacheds.server.version}</version>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.apache.directory.server</groupId>
       <artifactId>apacheds-protocol-shared</artifactId>
       <version>${apacheds.server.version}</version>
     </dependency>
@@ -345,11 +319,27 @@
       <version>${apacheds.server.version}</version>
     </dependency>
     
+    <!--
+    
     <dependency>
       <groupId>org.apache.directory.server</groupId>
       <artifactId>apacheds-protocol-kerberos</artifactId>
-      <version>${apacheds.server.version}</version>
+      <version>${apacheds.server.kerberos.version}</version>
     </dependency>
+    
+    <dependency>
+      <groupId>org.apache.directory.server</groupId>
+      <artifactId>apacheds-kerberos-codec</artifactId>
+      <version>${apacheds.server.kerberos.version}</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.apache.directory.server</groupId>
+      <artifactId>apacheds-interceptor-kerberos</artifactId>
+      <version>${apacheds.server.kerberos.version}</version>
+    </dependency>
+
+	-->
     
     <dependency>
       <groupId>org.apache.directory.server</groupId>
@@ -418,23 +408,12 @@
 	</dependency>
 
     
-    <dependency>
-      <groupId>org.apache.directory.server</groupId>
-      <artifactId>apacheds-interceptor-kerberos</artifactId>
-      <version>${apacheds.server.version}</version>
-    </dependency>
     
     <dependency>
       <groupId>org.apache.directory.server</groupId>
       <artifactId>apacheds-server-annotations</artifactId>
       <version>${apacheds.server.version}</version>
     </dependency>
-    
-    <dependency>
-	    <groupId>net.sf.ehcache</groupId>
-	    <artifactId>ehcache</artifactId>
-	    <version>${ehcache.version}</version>
-	</dependency>
     
   </dependencies>
 
@@ -446,70 +425,21 @@
    </resources>
     <plugins>
       <plugin>
-	    <groupId>org.apache.maven.plugins</groupId>
-	    <artifactId>maven-source-plugin</artifactId>
-	    <version>3.0.1</version>
-	    <executions>
-	      <execution>
-	        <id>attach-sources</id>
-	        <goals>
-	          <goal>jar-no-fork</goal>
-	        </goals>
-	      </execution>
-	    </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.0.0</version>
-        <executions>
-	        <execution>
-	          <id>attach-javadocs</id>
-	          <goals>
-	            <goal>jar</goal>
-	          </goals>
-	        </execution>
-	     </executions>
-      </plugin>
-      <plugin>
-      <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.0</version>
-        <configuration>
-          <source>${jdk.version}</source>
-          <target>${jdk.version}</target>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
-        <version>4.1.0</version>
         <extensions>true</extensions>
         <configuration>
           <instructions>
             <Bundle-SymbolicName>${project.artifactId};singleton:=true</Bundle-SymbolicName>
             <Bundle-Description>${project.description}</Bundle-Description>
             <Private-Package>
-            	com.terracotta*,
-            	net.sf.ehcache*,
-            	org.terracotta*,
             	jdbm*, 	
             	org.apache.directory.mavibot*,
             	org.apache.directory.server*,
             	org.sodeac.karaf.apacheds.impl
             </Private-Package>
-            <Export-Package>
-            	org.apache.directory.api*;version="${apacheds.api.version}",
-            	org.apache.directory.ldap.client*;version="${apacheds.api.version}",
-            	org.apache.directory.shared*;version="${apacheds.server.version}",
-            	org.sodeac.karaf.apacheds.api;version="${bundle.version}"
-            </Export-Package>
             <Import-Package>
             	!org.apache.mina.filter,
-            	!org.terracotta*,
-            	!com.terracotta*,
-				!net.sf.ehcache*,
-            	org.hibernate*;resolution:=optional,
                 *
             </Import-Package>
             <Include-Resource>src/main/ads-resources</Include-Resource>
@@ -544,7 +474,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-gpg-plugin</artifactId>
-					<version>1.6</version>
+					<version>3.1.0</version>
 					<executions>
 						<execution>
 							<id>sign-artifacts</id>

@@ -16,10 +16,29 @@
  */
 package org.sodeac.karaf.apacheds.api;
 
+/**
+ * 
+ * interface for active directory service
+ * 
+ */
 public interface IEmbeddedADS 
 {
+	/**
+	 * @throws Exception on error
+	 */
 	public void start() throws Exception;
+	/**
+	 * 
+	 */
 	public void stop();
+	
+	/**
+	 * @throws Exception on error
+	 */
 	public void synch() throws Exception;
+	
+	/**
+	 * @throws Exception on error
+	 */
 	public void repair() throws Exception;
 }

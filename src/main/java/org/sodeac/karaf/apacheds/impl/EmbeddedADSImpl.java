@@ -49,6 +49,7 @@ import org.apache.directory.api.ldap.schema.extractor.impl.DefaultSchemaLdifExtr
 import org.apache.directory.api.ldap.schema.loader.LdifSchemaLoader;
 import org.apache.directory.api.ldap.schema.manager.impl.DefaultSchemaManager;
 import org.apache.directory.api.util.DateUtils;
+import org.apache.directory.api.util.TimeProvider;
 import org.apache.directory.api.util.exception.Exceptions;
 import org.apache.directory.server.config.ConfigPartitionInitializer;
 import org.apache.directory.server.config.ConfigPartitionReader;
@@ -57,7 +58,6 @@ import org.apache.directory.server.config.beans.DirectoryServiceBean;
 import org.apache.directory.server.config.beans.TransportBean;
 import org.apache.directory.server.config.builder.ServiceBuilder;
 import org.apache.directory.server.config.listener.ConfigChangeListener;
-import org.apache.directory.server.core.api.CacheService;
 import org.apache.directory.server.core.api.CoreSession;
 import org.apache.directory.server.core.api.DirectoryService;
 import org.apache.directory.server.core.api.DnFactory;
@@ -67,6 +67,7 @@ import org.apache.directory.server.core.api.event.NotificationCriteria;
 import org.apache.directory.server.core.api.interceptor.context.ModifyOperationContext;
 import org.apache.directory.server.core.api.partition.Partition;
 import org.apache.directory.server.core.api.schema.SchemaPartition;
+import org.apache.directory.server.core.partition.impl.btree.AbstractBTreePartition;
 import org.apache.directory.server.core.partition.ldif.LdifPartition;
 import org.apache.directory.server.core.shared.DefaultDnFactory;
 import org.apache.directory.server.i18n.I18n;
@@ -88,6 +89,11 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.sodeac.karaf.apacheds.api.IEmbeddedADS;
 
 // based on https://github.com/apache/directory-server/blob/master/service/src/main/java/org/apache/directory/server/ApacheDsService.java
+/**
+ * 
+ * active directory server
+ * 
+ */
 @Component
 (
 	immediate=true,
@@ -97,17 +103,33 @@ import org.sodeac.karaf.apacheds.api.IEmbeddedADS;
 )
 public class EmbeddedADSImpl implements IEmbeddedADS
 {
+	/**
+	 * 
+	 * osgi log service
+	 * 
+	 */
 	@Reference
 	protected volatile LogService logService;
 	
+	/**
+	 * 
+	 * osgi mcomponent context
+	 * 
+	 */
 	protected ComponentContext context = null;
+	
+	/**
+	 * 
+	 * osgi properties
+	 * 
+	 */
 	protected Map<String, ?> properties = null;
 	
 	private SchemaManager schemaManager = null;
 	private LdifPartition schemaLdifPartition = null;
 	private LdifPartition configPartition = null;
 	private ConfigPartitionReader cpReader = null;
-	private CacheService cacheService = null;
+//	private CacheService cacheService = null;
 	private DirectoryService directoryService = null;
 	private LdapServer ldapServer = null;
 	private NtpServer ntpServer = null;
@@ -128,6 +150,11 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 
     private GeneralizedTimeSyntaxChecker timeChecker = GeneralizedTimeSyntaxChecker.INSTANCE;
 	
+	/**
+	 * 
+	 * PID for server
+	 * 
+	 */
 	public static final String SERVICE_PID = "org.sodeac.karaf.apacheds";
 	
 	@ObjectClassDefinition(name=SERVICE_PID, description="Configuration of Apachy DS Instance",factoryPid=EmbeddedADSImpl.SERVICE_PID)
@@ -154,16 +181,29 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		@AttributeDefinition(name="allowanonymousaccess",description = "allow anonymous access (overwrite ou=config)" ,type=AttributeType.BOOLEAN,  required=false)
 		boolean allowanonymousaccess();
 	}
+
 	
+	/**
+	 * 
+	 *  activate component
+	 * 
+	 * @param context component context
+	 * @param properties properties
+	 * @throws Exception on error
+	 */
 	@Activate
 	public void activate(ComponentContext context, Map<String, ?> properties) throws Exception
 	{
 		this.context = context;
 		this.properties = properties;
-		
 		this.start();
 	}
 	
+	/**
+	 *
+	 * start server
+	 *
+	 */
 	@Override
 	public void start() throws Exception
 	{
@@ -232,7 +272,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 
 			if ( !partitionsDir.exists() )
 			{
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "partition directory doesn't exist, creating " + partitionsDir.getAbsolutePath() );
+				logService.getLogger(getClass()).debug("partition directory doesn't exist, creating " + partitionsDir.getAbsolutePath() );
 				
 				if ( !partitionsDir.mkdirs() )
 				{
@@ -240,8 +280,8 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 				}
 			}
 			
-			CacheService cacheService = new CacheService();
-			cacheService.initialize( instanceLayout );
+//			CacheService cacheService = new CacheService();
+//			cacheService.initialize( instanceLayout );
 			
 			// Initialize the schema Manager by loading the schema LDIF files
 			
@@ -252,7 +292,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			// Extract the schema on disk (a brand new one) and load the registries
 			if (! schemaPartitionDirectory.exists() )
 			{
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "schema partition not exists, extract schema" );
+				logService.getLogger(getClass()).debug("schema partition not exists, extract schema" );
 				SchemaLdifExtractor extractor = new DefaultSchemaLdifExtractor( instanceLayout.getPartitionsDirectory() );
 				extractor.extractOrCopy();
 				isSchemaPartitionFirstExtraction = true;
@@ -275,7 +315,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			
 			// dnCache
 			
-			DnFactory dnFactory = new DefaultDnFactory( schemaManager, cacheService.getCache( "dnCache" ) );
+			DnFactory dnFactory = new DefaultDnFactory( schemaManager, AbstractBTreePartition.DEFAULT_CACHE_SIZE );
 			
 			// Initialize the schema partition
 			
@@ -284,7 +324,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			
 			// initializes a LDIF partition for configuration
 			
-			ConfigPartitionInitializer initializer = new ConfigPartitionInitializer( instanceLayout, dnFactory, cacheService, schemaManager );
+			ConfigPartitionInitializer initializer = new ConfigPartitionInitializer( instanceLayout, dnFactory, schemaManager );
 			configPartition = initializer.initConfigPartition();
 			
 			// Read the configuration
@@ -300,7 +340,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 				directoryServiceBean.setDsAllowAnonymousAccess(allowAnonymousAccess.booleanValue());
 			}
 			
-			logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Initializing the DirectoryService..." );
+			logService.getLogger(getClass()).debug("Initializing the DirectoryService..." );
 			
 			long startTime = System.currentTimeMillis();
 			
@@ -318,8 +358,6 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			
 			// Store the default directories
 			directoryService.setInstanceLayout( instanceLayout );
-			
-			directoryService.setCacheService( cacheService );
 			
 			directoryService.setShutdownHookEnabled(false);
 			directoryService.setExitVmOnShutdown(false);
@@ -352,18 +390,18 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			
 			if ( isSchemaPartitionFirstExtraction )
 			{
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "begining to update schema partition LDIF files after modifying manadatory attributes" );
+				logService.getLogger(getClass()).debug("begining to update schema partition LDIF files after modifying manadatory attributes" );
 				
 				updateMandatoryOpAttributes( schemaLdifPartition, directoryService );
 				
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "schema partition data was successfully updated" );
+				logService.getLogger(getClass()).debug("schema partition data was successfully updated" );
 			}
 			
-			logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "DirectoryService initialized in {} milliseconds" + ( System.currentTimeMillis() - startTime ) );
+			logService.getLogger(getClass()).debug("DirectoryService initialized in {} milliseconds" + ( System.currentTimeMillis() - startTime ) );
 			
 			// LDAP Server
 			
-			logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Starting the LDAP server" );
+			logService.getLogger(getClass()).debug("Starting the LDAP server" );
 			startTime = System.currentTimeMillis();
 			
 			if((directoryServiceBean.getLdapServerBean() != null) && directoryServiceBean.getLdapServerBean().isEnabled())
@@ -432,65 +470,65 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 				{
 					if((directoryServiceBean.getLdapServerBean() != null) && directoryServiceBean.getLdapServerBean().isEnabled())
 					{
-						logService.log(this.context.getServiceReference(),LogService.LOG_ERROR, "Cannot find any reference to the LDAP Server in the configuration : the server won't be started" );
+						logService.getLogger(getClass()).error( "Cannot find any reference to the LDAP Server in the configuration : the server won't be started" );
 					}
 				}
 				else
 				{
 					ldapServer.start();
 					
-					logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "LDAP server: started in " + ( System.currentTimeMillis() - startTime ) + " milliseconds");
+					logService.getLogger(getClass()).debug("LDAP server: started in " + ( System.currentTimeMillis() - startTime ) + " milliseconds");
 				}
 			}
 			
 			if((directoryServiceBean.getNtpServerBean() != null) && (directoryServiceBean.getNtpServerBean().isEnabled()))
 			{
 				
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Creating NTP server" );
+				logService.getLogger(getClass()).debug("Creating NTP server" );
 				
 				startTime = System.currentTimeMillis();
 				ntpServer = ServiceBuilder.createNtpServer( directoryServiceBean.getNtpServerBean(), directoryService );
 				
 				if ( ntpServer == null )
 				{
-					logService.log(this.context.getServiceReference(),LogService.LOG_ERROR,  "Cannot find any reference to the NTP Server in the configuration : the server won't be started" );
+					logService.getLogger(getClass()).error(  "Cannot find any reference to the NTP Server in the configuration : the server won't be started" );
 				}
 				else
 				{
 					ntpServer.start();
 					
-					logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG,  "NTP server: started in "+ ( System.currentTimeMillis() - startTime ) + " milliseconds" );
+					logService.getLogger(getClass()).debug( "NTP server: started in "+ ( System.currentTimeMillis() - startTime ) + " milliseconds" );
 				}
 			}
 			
 			if((directoryServiceBean.getKdcServerBean() != null) && directoryServiceBean.getKdcServerBean().isEnabled())
 			{
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Creating Kerberos server" );
+				logService.getLogger(getClass()).debug("Creating Kerberos server" );
 				
 				startTime = System.currentTimeMillis();
 				
 				kdcServer = ServiceBuilder.createKdcServer( directoryServiceBean, directoryService );
 				if ( kdcServer == null )
 				{
-					logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Cannot find any reference to the Kerberos Server in the configuration : the server won't be started" );
+					logService.getLogger(getClass()).debug("Cannot find any reference to the Kerberos Server in the configuration : the server won't be started" );
 				}
 				else
 				{
-					logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG,  "Starting the Kerberos server" );
+					logService.getLogger(getClass()).debug( "Starting the Kerberos server" );
 					
 					ldapServer.getDirectoryService().startup();
 					kdcServer.setDirectoryService( ldapServer.getDirectoryService() );
 					
 					kdcServer.start();
 					
-					logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Kerberos server: started in " + ( System.currentTimeMillis() - startTime ) + " milliseconds");
+					logService.getLogger(getClass()).debug("Kerberos server: started in " + ( System.currentTimeMillis() - startTime ) + " milliseconds");
 				}
 			}
 			
 			
 			if((directoryServiceBean.getHttpServerBean() != null) && directoryServiceBean.getHttpServerBean().isEnabled())
 			{
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Creating HTTP server" );
+				logService.getLogger(getClass()).debug("Creating HTTP server" );
 				
 				startTime = System.currentTimeMillis();
 				
@@ -498,19 +536,19 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 				
 				if ( httpServer == null )
 				{
-					logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "Cannot find any reference to the HTTP Server in the configuration : the server won't be started" );
+					logService.getLogger(getClass()).debug("Cannot find any reference to the HTTP Server in the configuration : the server won't be started" );
 				}
 				
 				httpServer.start( ldapServer.getDirectoryService() );
 				
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "HTTP server: started in " + ( System.currentTimeMillis() - startTime ) + " milliseconds");
+				logService.getLogger(getClass()).debug("HTTP server: started in " + ( System.currentTimeMillis() - startTime ) + " milliseconds");
 			}
 			
 			
-			logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG,  "Registering config change listener" );
+			logService.getLogger(getClass()).debug( "Registering config change listener" );
 			ConfigChangeListener configListener = new ConfigChangeListener( cpReader, directoryService );
 			
-			NotificationCriteria criteria = new NotificationCriteria( directoryService.getSchemaManager() );
+			NotificationCriteria criteria = new NotificationCriteria(schemaManager);
 			criteria.setBase( configPartition.getSuffixDn() );
 			criteria.setEventMask( EventType.ALL_EVENT_TYPES_MASK );
 			
@@ -527,14 +565,25 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		}
 	}
 	
+	/**
+	 * 
+	 *  deactivate component
+	 * 
+	 * @param context component context
+	 */
 	@Deactivate
-	public void deactivate(ComponentContext context) throws Exception 
+	public void deactivate(ComponentContext context) 
 	{
 		this.stop();
 		this.properties = null;
 		this.context = null;
 	}
 	
+	/**
+	 * 
+	 * stop server
+	 *
+	 */
 	@Override
 	public void stop() 
 	{
@@ -548,7 +597,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		}
 		catch (Exception e) 
 		{
-			logService.log(context.getServiceReference(),LogService.LOG_ERROR, "error stop http  service",e);
+			logService.getLogger(getClass()).error("error stop http  service",e);
 		}
 		
 		try
@@ -560,7 +609,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		}
 		catch (Exception e) 
 		{
-			logService.log(context.getServiceReference(),LogService.LOG_ERROR, "error stop kdc  service",e);
+			logService.getLogger(getClass()).error("error stop kdc  service",e);
 		}
 		
 		try
@@ -572,7 +621,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		}
 		catch (Exception e) 
 		{
-			logService.log(context.getServiceReference(),LogService.LOG_ERROR, "error stop ntp service",e);
+			logService.getLogger(getClass()).error("error stop ntp service",e);
 		}
 		
 		try
@@ -584,7 +633,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		}
 		catch (Exception e) 
 		{
-			logService.log(context.getServiceReference(),LogService.LOG_ERROR, "error stop ldap service",e);
+			logService.getLogger(getClass()).error("error stop ldap service",e);
 		}
 		
 		try
@@ -596,24 +645,19 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		}
 		catch (Exception e) 
 		{
-			logService.log(context.getServiceReference(),LogService.LOG_ERROR, "error stop directory service",e);
-		}
-		
-		try
-		{
-			if(this.cacheService != null)
-			{
-				this.cacheService.destroy();
-			}
-		}
-		catch (Exception e) 
-		{
-			logService.log(context.getServiceReference(),LogService.LOG_ERROR, "error destroy cache service",e);
+			logService.getLogger(getClass()).error("error stop directory service",e);
 		}
 		
 		this.instanceLayout = null;
 	}
 	
+	/**
+	 * 
+	 * called when modified (restart)
+	 * 
+	 * @param properties osgi properties
+	 * @throws Exception on error
+	 */
 	@Modified 
 	public void modified(Map<String, ?> properties) throws Exception
 	{
@@ -622,12 +666,22 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		this.start();
 	}
 	
+	/**
+	 * 
+	 * sync directories
+	 *
+	 */
 	@Override
 	public void synch() throws Exception
 	{
 		ldapServer.getDirectoryService().sync();
 	}
 	
+	/**
+	 * 
+	 * repair partitions directory
+	 *
+	 */
 	@Override
 	public void repair() throws Exception
 	{
@@ -640,7 +694,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 		
 		File partitionsDir = this.instanceLayout.getPartitionsDirectory();
 		
-		logService.log(context.getServiceReference(), LogService.LOG_INFO, "Repairing partition dir " + partitionsDir.getAbsolutePath() );
+		logService.getLogger(getClass()).info( "Repairing partition dir " + partitionsDir.getAbsolutePath() );
 		Set<? extends Partition> partitions = this.ldapServer.getDirectoryService().getPartitions();
 		
 		// Iterate on the partitions to repair them
@@ -652,11 +706,19 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			}
 			catch ( Exception e )
 			{
-				logService.log(context.getServiceReference(),LogService.LOG_ERROR, "Failed to repair the partition " + partition.getId(),e);
+				logService.getLogger(getClass()).error("Failed to repair the partition " + partition.getId(),e);
 			}
 		}
 	}
 	
+	/**
+	 * 
+	 * updateMandatoryOpAttributes
+	 * 
+	 * @param partition partition
+	 * @param dirService directory service
+	 * @throws Exception on error
+	 */
 	public void updateMandatoryOpAttributes( Partition partition, DirectoryService dirService ) throws Exception
 	{
 		CoreSession session = dirService.getAdminSession();
@@ -713,7 +775,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			
 			if ( !timeChecker.isValidSyntax( createdTime ) )
 			{
-				createdTimeAt = new DefaultAttribute( atType, DateUtils.getGeneralizedTime() );
+				createdTimeAt = new DefaultAttribute( atType, DateUtils.getGeneralizedTime(TimeProvider.DEFAULT) );
 			}
 			
 			Modification createdMod = new DefaultModification( ModificationOperation.REPLACE_ATTRIBUTE, createdTimeAt );
@@ -721,7 +783,7 @@ public class EmbeddedADSImpl implements IEmbeddedADS
 			
 			if ( !mods.isEmpty() )
 			{
-				logService.log(this.context.getServiceReference(),LogService.LOG_DEBUG, "modifying the entry " + entry.getDn() + " after adding missing manadatory operational attributes" );
+				logService.getLogger(getClass()).debug("modifying the entry " + entry.getDn() + " after adding missing manadatory operational attributes" );
 				ModifyOperationContext modifyContext = new ModifyOperationContext( session );
 				modifyContext.setEntry( entry );
 				modifyContext.setDn( entry.getDn() );
